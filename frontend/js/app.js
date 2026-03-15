@@ -6,6 +6,9 @@ const taskForm = document.getElementById("taskForm");
 const totalTasks = document.getElementById("totalTasks");
 const completedTasks = document.getElementById("completedTasks");
 const pendingTasks = document.getElementById("pendingTasks");
+const searchTask = document.getElementById("searchTask");
+
+let allTasks = [];
 
 taskForm.addEventListener("submit", addTask);
 
@@ -15,6 +18,7 @@ e.preventDefault();
 
 const title = document.getElementById("title").value;
 const description = document.getElementById("description").value;
+const dueDate = document.getElementById("dueDate").value;
 
 await fetch(API_URL,{
 method:"POST",
@@ -23,7 +27,8 @@ headers:{
 },
 body:JSON.stringify({
 title,
-description
+description,
+dueDate
 })
 });
 
@@ -36,50 +41,39 @@ async function loadTasks(){
 const res = await fetch(API_URL);
 const tasks = await res.json();
 
+allTasks = tasks;
+
+updateStats(tasks);
+displayTasks(tasks);
+
+}
+
+function displayTasks(tasks){
+
 taskList.innerHTML="";
-
-let total = tasks.length;
-let completed = tasks.filter(t=>t.completed).length;
-let pending = total - completed;
-
-totalTasks.innerText = total;
-completedTasks.innerText = completed;
-pendingTasks.innerText = pending;
 
 tasks.forEach(task=>{
 
 const li = document.createElement("li");
 
 li.innerHTML = `
-<div class="task ${task.completed ? "completed" : ""}">
+<div class="task">
+<div>
 
-<div class="task-left">
-
-<div class="task-text">
+<input type="checkbox"
+${task.completed ? "checked" : ""}
+onchange="toggleComplete('${task._id}', ${task.completed})"
+/>
 
 <strong>${task.title}</strong>
-
 <p>${task.description}</p>
-
-<small>Status: ${task.completed ? "Completed" : "Pending"}</small>
-
-</div>
+<small>Due: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ""}</small>
 
 </div>
 
-<div class="task-buttons">
-
-<button class="complete-btn"
-onclick="toggleComplete('${task._id}', ${task.completed})">
-✔
-</button>
-
-<button class="delete-btn"
-onclick="deleteTask('${task._id}')">
+<button class="delete-btn" onclick="deleteTask('${task._id}')">
 🗑
 </button>
-
-</div>
 
 </div>
 `;
@@ -87,9 +81,35 @@ onclick="deleteTask('${task._id}')">
 taskList.appendChild(li);
 
 });
+
 }
 
-async function toggleComplete(id,status){
+function updateStats(tasks){
+
+const total = tasks.length;
+const completed = tasks.filter(t=>t.completed).length;
+const pending = total - completed;
+
+totalTasks.textContent = total;
+completedTasks.textContent = completed;
+pendingTasks.textContent = pending;
+
+}
+
+searchTask.addEventListener("input",()=>{
+
+const text = searchTask.value.toLowerCase();
+
+const filteredTasks = allTasks.filter(task =>
+task.title.toLowerCase().includes(text) ||
+task.description.toLowerCase().includes(text)
+);
+
+displayTasks(filteredTasks);
+
+});
+
+window.toggleComplete = async function(id,status){
 
 await fetch(API_URL+"/"+id,{
 method:"PUT",
@@ -102,15 +122,17 @@ completed:!status
 });
 
 loadTasks();
+
 }
 
-async function deleteTask(id){
+window.deleteTask = async function(id){
 
-await fetch(API_URL+"/"+id,{
+await fetch(API_URL + "/" + id,{
 method:"DELETE"
 });
 
 loadTasks();
+
 }
 
 loadTasks();
